@@ -2,59 +2,103 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planning DMF</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Planning DMF - Live</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&family=Baloo+2:wght@700;800&display=swap" rel="stylesheet">
     <style>
-        body { margin: 0; height: 100vh; font-family: 'Nunito', sans-serif; }
-        #topbar { height: 60px; background: white; display: flex; align-items: center; padding: 0 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 1000; position: relative; }
-        #map { height: calc(100vh - 60px); width: 100%; z-index: 1; }
-        .btn-add { background: #7d5bbe; color: white; padding: 8px 15px; border-radius: 20px; text-decoration: none; font-weight: bold; }
+        :root { --dmf-dark: #2c263d; --dmf-purple: #7d5bbe; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Nunito', sans-serif; overflow: hidden; background: var(--dmf-dark); height: 100vh; display: flex; flex-direction: column; }
+        #topbar { height: 60px; background: #fff; z-index: 3000; display: flex; align-items: center; padding: 0 15px; gap: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .logo { font-family: 'Baloo 2', cursive; font-weight: 800; color: var(--dmf-purple); flex: 1; font-size: 1.2rem; }
+        #map { flex: 1; z-index: 1; cursor: crosshair; }
+        .status-pill { font-size: 10px; color: #666; background: #f0f0f0; padding: 4px 10px; border-radius: 12px; }
+        .btn-add { background: var(--dmf-purple); color: white; padding: 8px 18px; border-radius: 20px; text-decoration: none; font-weight: 700; font-size: 13px; transition: 0.3s; }
+        .btn-del { color: #e74c3c; background: none; border: 1px solid #e74c3c; padding: 4px 8px; border-radius: 5px; font-size: 10px; cursor: pointer; margin-top: 8px; width: 100%; }
     </style>
 </head>
 <body>
 
 <div id="topbar">
-    <div style="flex:1; font-weight:bold; color:#7d5bbe;">Planning DMF</div>
-    <a href="https://docs.google.com/forms/d/e/1FAIpQLSdSRafPy4fsQ1sy4hQ5jSQPwbFQIkbfxcsejKyfLNBU/viewform" target="_blank" class="btn-add">➕ AJOUTER</a>
+    <div class="logo">Planning <span>DMF</span> <small id="sync-status" class="status-pill">Connexion...</small></div>
+    <a href="https://docs.google.com/forms/d/e/1FAIpQLSf9oIbVcdBDfJzyPIn8ZDLhveJRIvavcYbniYXTBi4YjXAyPQ/viewform" target="_blank" class="btn-add">➕ AJOUTER UN RDV</a>
 </div>
 
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    const API_URL = "https://sheetdb.io/api/v1/2kdvt8m5dti9s";
-    const map = L.map('map').setView([46.6, 2.3], 6);
+    const SHEETDB_URL = "https://sheetdb.io/api/v1/2kdvt8m5dti9s";
+    const FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSf9oIbVcdBDfJzyPIn8ZDLhveJRIvavcYbniYXTBi4YjXAyPQ/viewform";
+
+    const TYPE_CONFIG = {
+        "evenement": { color: '#7d5bbe', icon: '📅' },
+        "reunion": { color: '#d64d8a', icon: '🤝' },
+        "instance": { color: '#5bc0de', icon: '🏛️' },
+        "projet": { color: '#67a379', icon: '🚀' },
+        "default": { color: '#2c263d', icon: '📍' }
+    };
+
+    const map = L.map('map', { zoomControl: false }).setView([46.6, 2.3], 6);
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    async function charger() {
+    // Clic carte pour ajouter
+    map.on('click', function(e) {
+        L.popup()
+            .setLatLng(e.latlng)
+            .setContent(`<div style="text-align:center;font-family:Nunito;"><b>Nouveau RDV ?</b><br><br><a href="${FORM_URL}" target="_blank" class="btn-add" style="display:block;">➕ AJOUTER ICI</a></div>`)
+            .openOn(map);
+    });
+
+    async function loadData() {
+        const status = document.getElementById('sync-status');
+        status.textContent = "🔄 Synchronisation...";
         try {
-            const res = await fetch(API_URL);
+            const res = await fetch(SHEETDB_URL);
             const data = await res.json();
-            
-            // On nettoie la carte
             map.eachLayer(l => { if(l instanceof L.Marker) map.removeLayer(l); });
 
-            for (let rdv of data) {
-                // On cherche la ville (on essaie "ville" ou "Ville")
-                let nomVille = rdv.ville || rdv.Ville;
-                let texteTitre = rdv.titre || rdv.Titre || "Sans titre";
+            for (const item of data) {
+                // Lecture flexible des colonnes
+                const v = item.ville || item.Ville || item.VILLE;
+                const t = item.titre || item.Titre || item.TITRE || "Sans titre";
+                const d = item.date || item.Date || "";
+                const ty = (item.type || item.Type || "").toLowerCase().trim();
 
-                if (nomVille) {
-                    const geo = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(nomVille)}&format=json&limit=1`);
-                    const geoData = await geo.json();
-                    
-                    if (geoData.length > 0) {
-                        L.marker([geoData[0].lat, geoData[0].lon])
+                if (v) {
+                    const gRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(v)}&format=json&limit=1`);
+                    const gData = await gRes.json();
+                    if (gData.length > 0) {
+                        const conf = TYPE_CONFIG[ty] || TYPE_CONFIG.default;
+                        const icon = L.divIcon({
+                            html: `<div style="background:${conf.color}; width:16px; height:16px; border-radius:50%; border:2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);"></div>`,
+                            className: '', iconSize: [16, 16]
+                        });
+                        L.marker([gData[0].lat, gData[0].lon], {icon: icon})
                          .addTo(map)
-                         .bindPopup(`<b>${texteTitre}</b><br>${rdv.date || ''}<br>📍 ${nomVille}`);
+                         .bindPopup(`<strong>${conf.icon} ${t}</strong><br><small>📅 ${d}<br>📍 ${v}</small><button class="btn-del" onclick="deleteRDV('${t}')">🗑️ Supprimer</button>`);
                     }
                 }
             }
-        } catch (e) { console.error("Erreur de chargement"); }
+            status.textContent = "✅ À jour";
+        } catch (e) { status.textContent = "⚠️ Erreur"; }
     }
 
-    charger();
+    async function deleteRDV(titre) {
+        if(!confirm("Supprimer '" + titre + "' ?")) return;
+        try {
+            await fetch(`${SHEETDB_URL}/titre/${encodeURIComponent(titre)}`, { method: 'DELETE' });
+            loadData();
+        } catch (e) { 
+            await fetch(`${SHEETDB_URL}/Titre/${encodeURIComponent(titre)}`, { method: 'DELETE' });
+            loadData(); 
+        }
+    }
+
+    loadData();
+    setInterval(loadData, 60000);
 </script>
 </body>
 </html>
