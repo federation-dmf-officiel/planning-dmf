@@ -1,45 +1,377 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Test DMF</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Planning Fédération DMF - Gestion Collaborative</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>#map { height: 90vh; width: 100%; } body { margin: 0; padding: 10px; font-family: sans-serif; }</style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&family=Baloo+2:wght@700;800&display=swap" rel="stylesheet">
+    <script src="data.js"></script>
+    <style>
+        :root {
+            --dmf-dark: #2c263d;
+            --radius: 14px;
+            --panel-w: 230px;
+            --color-evenement: #7d5bbe;
+            --color-reunion: #d64d8a;
+            --color-instance: #5bc0de;
+            --color-projet: #67a379;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Nunito', sans-serif; overflow: hidden; background: var(--dmf-dark); height: 100vh; display: flex; flex-direction: column; }
+
+        #topbar {
+            height: 60px; background: #fff; z-index: 3000;
+            display: flex; align-items: center; padding: 0 15px; gap: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); flex-shrink: 0;
+        }
+        .logo { font-family: 'Baloo 2', cursive; font-weight: 800; font-size: 1.1em; color: #7d5bbe; flex-shrink: 0; }
+        .logo span { color: #d64d8a; }
+        .sep { flex: 1; }
+        
+        #topbar button {
+            background: #f4f1fa; color: #7d5bbe; border: none;
+            padding: 8px 12px; border-radius: 20px; font-weight: 700; font-size: 0.75em;
+            cursor: pointer;
+        }
+        .btn-create { background: #67a379 !important; color: white !important; }
+
+        #layout { flex: 1; display: flex; overflow: hidden; position: relative; }
+
+        .region-sidebar { width: var(--panel-w); background: #fff; overflow-y: auto; border-right: 1px solid #eee; z-index: 100; }
+        #sidebar-right { border-left: 1px solid #eee; border-right: none; }
+        @media (max-width: 900px) { .region-sidebar { display: none; } }
+
+        .sidebar-header { position: sticky; top: 0; background: #fff; color: #7d5bbe; padding: 15px; font-family: 'Baloo 2'; font-weight: 800; border-bottom: 2px solid #f4f1fa; }
+        .region-item { border-bottom: 1px solid #f9f9f9; }
+        .region-item-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 15px; cursor: pointer; }
+        .region-count { background: #eee; color: #888; border-radius: 20px; padding: 2px 10px; font-size: 0.75em; font-weight: 700; }
+        .region-count.active { background: #7d5bbe; color: white; }
+        .region-events { display: none; background: #fdfcff; font-size: 0.8em; padding: 5px 0; }
+        .region-events.open { display: block; }
+        .region-ev-link { padding: 8px 15px; cursor: pointer; display: block; border-left: 3px solid transparent; }
+
+        #map-wrapper { flex: 1; position: relative; }
+        #map { height: 100%; width: 100%; z-index: 1; background: var(--dmf-dark); }
+
+        #form-container, #events-list-panel, #admin-panel {
+            position: absolute; top: 10px; left: 10px; right: 10px; bottom: 10px;
+            background: white; padding: 20px; border-radius: var(--radius);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 2000; display: none; overflow-y: auto;
+        }
+        @media (min-width: 600px) {
+            #form-container, #admin-panel { left: auto; width: 350px; }
+            #events-list-panel { right: auto; width: 350px; }
+        }
+
+        h3 { font-family: 'Baloo 2'; margin-bottom: 15px; color: var(--dmf-dark); }
+        label { display: block; margin: 12px 0 5px; font-weight: 700; font-size: 0.75em; color: #888; text-transform: uppercase; }
+        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; margin-bottom: 5px; }
+        
+        .buttons { margin-top: 20px; display: flex; gap: 10px; }
+        .btn-save { flex: 2; padding: 14px; background: #7d5bbe; color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; }
+        .btn-cancel { flex: 1; padding: 14px; background: #f0f0f0; border: none; border-radius: 8px; color: #666; cursor: pointer; }
+        .close-x { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 1.5em; color: #ccc; cursor: pointer; }
+
+        #suggestions { background: white; border: 1px solid #ddd; position: absolute; width: calc(100% - 40px); z-index: 2100; display: none; border-radius: 8px; }
+        .suggestion-item { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; cursor: pointer; }
+
+        #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--dmf-dark); color: white; padding: 12px 25px; border-radius: 30px; z-index: 9999; opacity: 0; transition: 0.4s; pointer-events: none; }
+        #toast.show { opacity: 1; }
+
+        /* Styles spécifiques pour les actions */
+        .btn-del-small { background: #fff0f0; color: #ff4d4d; border: 1px solid #ff4d4d; border-radius: 5px; padding: 4px 8px; cursor: pointer; font-size: 0.8em; font-weight: 700; }
+        .btn-edit-small { background: #f4f1fa; color: #7d5bbe; border: 1px solid #7d5bbe; border-radius: 5px; padding: 4px 8px; cursor: pointer; font-size: 0.8em; font-weight: 700; }
+        .list-item-actions { position: absolute; right: 10px; top: 12px; display: flex; gap: 5px; }
+    </style>
 </head>
 <body>
-    <div id="info">Statut : Chargement des données...</div>
-    <div id="map"></div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        const map = L.map('map').setView([46.6, 2.3], 6);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+<div id="topbar">
+    <div class="logo">Planning <span>DMF</span></div>
+    <div class="sep"></div>
+    <button class="btn-create" onclick="openFormCreate()">+</button>
+    <button onclick="toggleEventsList()">📋</button>
+    <button onclick="toggleAdminPanel()">⚙️</button>
+</div>
 
-        fetch("https://sheetdb.io/api/v1/2kdvt8m5dti9s")
-        .then(res => res.json())
-        .then(data => {
-            const info = document.getElementById('info');
-            if (data.length === 0) {
-                info.innerHTML = "⚠️ AUCUNE DONNÉE TROUVÉE. Le tableau Google Sheets semble vide pour l'API.";
-            } else {
-                info.innerHTML = "✅ " + data.length + " rendez-vous trouvés. Analyse des villes...";
-                data.forEach(item => {
-                    const ville = item.ville || item.Ville;
-                    if(ville) {
-                        fetch(`https://nominatim.openstreetmap.org/search?q=${ville}&format=json&limit=1`)
-                        .then(r => r.json())
-                        .then(g => {
-                            if(g.length > 0) {
-                                L.marker([g[0].lat, g[0].lon]).addTo(map).bindPopup(item.titre || item.Titre);
-                            }
-                        });
-                    }
-                });
-            }
-        })
-        .catch(err => {
-            document.getElementById('info').innerHTML = "❌ ERREUR API : Vérifiez votre lien SheetDB.";
+<div id="layout">
+    <div class="region-sidebar" id="sidebar-left">
+        <div class="sidebar-header">Régions A – M</div>
+        <div id="regions-left-content"></div>
+    </div>
+
+    <div id="map-wrapper">
+        <div id="map"></div>
+        
+        <form id="form-container" onsubmit="event.preventDefault(); saveEvent();">
+            <button type="button" class="close-x" onclick="closeForm()">✕</button>
+            <h3 id="form-title">Nouveau RDV</h3>
+            <input type="hidden" id="edit-id">
+            
+            <label>📍 Lieu</label>
+            <input type="text" id="event-location" placeholder="Ville ou adresse..." autocomplete="off">
+            <div id="suggestions"></div>
+            
+            <label>📝 Titre</label>
+            <input type="text" id="event-title">
+            
+            <label>🎯 Type de rdv</label>
+            <select id="event-type">
+                <option value="evenement">📅 rdv évènement</option>
+                <option value="reunion">🤝 rdv réunion</option>
+                <option value="instance">🏛️ rdv instance</option>
+                <option value="projet">🚀 rdv projet</option>
+            </select>
+            
+            <div style="display:flex; gap:10px;">
+                <div style="flex:1;"><label>📅 Date</label><input type="date" id="event-date"></div>
+                <div style="flex:1;"><label>⏰ Heure</label><input type="time" id="event-time"></div>
+            </div>
+            
+            <label>👤 Organisateur</label>
+            <input type="text" id="event-organizer">
+            
+            <label>🔑 PIN (Optionnel)</label>
+            <input type="password" id="event-pin" maxlength="4">
+
+            <div class="buttons">
+                <button type="button" class="btn-cancel" onclick="closeForm()">Annuler</button>
+                <button type="submit" class="btn-save">Enregistrer</button>
+            </div>
+        </form>
+
+        <div id="events-list-panel">
+            <button class="close-x" onclick="toggleEventsList()">✕</button>
+            <h3>Tous les rendez-vous</h3>
+            <div id="events-list-content"></div>
+        </div>
+
+        <div id="admin-panel">
+            <button class="close-x" onclick="toggleAdminPanel()">✕</button>
+            <h3>Synchronisation GitHub</h3>
+            <p style="font-size:0.8em; color:#666; margin-bottom:15px;">
+                <b>Important :</b> Pour que vos modifications soient visibles par les autres, cliquez sur le bouton ci-dessous puis remplacez le contenu de votre fichier <b>data.js</b> sur GitHub.
+            </p>
+            <button class="btn-save" onclick="exportData()">⬇️ EXPORTER DATA.JS</button>
+        </div>
+    </div>
+
+    <div class="region-sidebar" id="sidebar-right">
+        <div class="sidebar-header">Régions N – Z</div>
+        <div id="regions-right-content"></div>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const TYPE_CONFIG = {
+    evenement: { color: '#7d5bbe', icon: '📅', label: 'évènement' },
+    reunion:   { color: '#d64d8a', icon: '🤝', label: 'réunion' },
+    instance:  { color: '#5bc0de', icon: '🏛️', label: 'instance' },
+    projet:    { color: '#67a379', icon: '🚀', label: 'projet' }
+};
+
+const REGIONS = [
+    { name: "Auvergne-Rhône-Alpes", lat: 45.4, lng: 4.5 }, { name: "Bourgogne-Franche-Comté", lat: 47.0, lng: 5.0 },
+    { name: "Bretagne", lat: 48.1, lng: -2.8 }, { name: "Centre-Val de Loire", lat: 47.5, lng: 1.9 },
+    { name: "Corse", lat: 42.1, lng: 9.1 }, { name: "Grand Est", lat: 48.7, lng: 6.2 },
+    { name: "Hauts-de-France", lat: 50.3, lng: 2.5 }, { name: "Île-de-France", lat: 48.8, lng: 2.3 },
+    { name: "Normandie", lat: 49.1, lng: 0.0 }, { name: "Nouvelle-Aquitaine", lat: 44.8, lng: 0.2 },
+    { name: "Occitanie", lat: 43.5, lng: 2.5 }, { name: "Pays de la Loire", lat: 47.6, lng: -0.5 },
+    { name: "Provence-Alpes-Côte d'Azur", lat: 43.9, lng: 6.1 }
+];
+
+// Fusion des données GitHub (data.js) et locales
+let events = (typeof SHARED_EVENTS !== 'undefined' ? [...SHARED_EVENTS] : []);
+let localEvs = JSON.parse(localStorage.getItem('dmf_events') || '[]');
+localEvs.forEach(le => { if(!events.find(e => e.id === le.id)) events.push(le); });
+
+const boundsFrance = L.latLngBounds(L.latLng(41.0, -5.5), L.latLng(51.5, 10.0));
+const map = L.map('map', { center: [46.60, 1.88], zoom: 6, minZoom: 5, maxBounds: boundsFrance, maxBoundsViscosity: 1.0 });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+function loadMarkers() {
+    map.eachLayer(l => { if(l instanceof L.Marker) map.removeLayer(l); });
+    events.forEach(ev => {
+        const conf = TYPE_CONFIG[ev.type] || TYPE_CONFIG.evenement;
+        const icon = L.divIcon({
+            className: '',
+            html: `<div style="width:18px;height:18px;border-radius:50%;background:${conf.color};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>`,
+            iconSize: [18,18]
         });
-    </script>
+        L.marker([ev.lat, ev.lng], {icon}).addTo(map)
+         .bindPopup(`
+            <div style="min-width:150px">
+                <b style="color:${conf.color}">${conf.icon} ${ev.title}</b><br>
+                Date: ${ev.date}<br>
+                Organisateur: ${ev.organizer || 'N/A'}<br>
+                <div style="margin-top:10px; display:flex; gap:5px;">
+                    <button onclick="editEvent(${ev.id})" class="btn-edit-small">Modifier</button>
+                    <button onclick="deleteEvent(${ev.id})" class="btn-del-small">Supprimer</button>
+                </div>
+            </div>
+         `);
+    });
+    renderSidebars();
+}
+
+function renderSidebars() {
+    const half = Math.ceil(REGIONS.length / 2);
+    document.getElementById('regions-left-content').innerHTML = REGIONS.slice(0, half).map(r => renderRegion(r)).join('');
+    document.getElementById('regions-right-content').innerHTML = REGIONS.slice(half).map(r => renderRegion(r)).join('');
+    
+    document.getElementById('events-list-content').innerHTML = events.sort((a,b)=>new Date(a.date)-new Date(b.date)).map(e => {
+        const c = TYPE_CONFIG[e.type];
+        return `
+        <div style="padding:12px; border-bottom:1px solid #eee; border-left: 5px solid ${c.color}; margin-bottom:5px; position:relative;">
+            <div style="cursor:pointer; padding-right:60px;" onclick="map.flyTo([${e.lat},${e.lng}],12); toggleEventsList();">
+                <div style="font-weight:800; color:${c.color}; font-size:0.9em;">${c.icon} ${e.title}</div>
+                <div style="font-size:0.8em; color:#666;">📅 ${e.date} • 📍 ${e.region}</div>
+            </div>
+            <div class="list-item-actions">
+                <button onclick="editEvent(${e.id})" style="border:none; background:none; cursor:pointer;">✏️</button>
+                <button onclick="deleteEvent(${e.id})" style="border:none; background:none; cursor:pointer;">🗑️</button>
+            </div>
+        </div>`;
+    }).join('') || "Aucun rdv enregistré.";
+}
+
+function renderRegion(r) {
+    const evs = events.filter(e => e.region === r.name);
+    return `
+    <div class="region-item">
+        <div class="region-item-header" onclick="this.nextElementSibling.classList.toggle('open')">
+            <span style="font-weight:700; font-size:0.8em;">${r.name}</span>
+            <span class="region-count ${evs.length>0?'active':''}">${evs.length}</span>
+        </div>
+        <div class="region-events">
+            ${evs.map(e => `<div class="region-ev-link" style="border-left: 3px solid ${TYPE_CONFIG[e.type].color}" onclick="map.flyTo([${e.lat},${e.lng}],12)">${e.title}</div>`).join('')}
+        </div>
+    </div>`;
+}
+
+// Recherche de lieu Nominatim
+let selectedCoords = null;
+const locInput = document.getElementById('event-location');
+const suggBox = document.getElementById('suggestions');
+
+locInput.addEventListener('input', async () => {
+    if(locInput.value.length < 3) { suggBox.style.display = 'none'; return; }
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${locInput.value}&countrycodes=fr&format=json&limit=5`);
+    const data = await res.json();
+    suggBox.innerHTML = data.map(d => `<div class="suggestion-item" data-lat="${d.lat}" data-lon="${d.lon}">${d.display_name}</div>`).join('');
+    suggBox.style.display = 'block';
+    suggBox.querySelectorAll('.suggestion-item').forEach(i => {
+        i.onclick = () => {
+            selectedCoords = {lat: i.dataset.lat, lng: i.dataset.lon};
+            locInput.value = i.textContent.split(',')[0];
+            suggBox.style.display = 'none';
+        };
+    });
+});
+
+function saveEvent() {
+    const title = document.getElementById('event-title').value;
+    const date = document.getElementById('event-date').value;
+    const editId = document.getElementById('edit-id').value;
+    
+    if(!title || !date || !selectedCoords) return showToast("Titre, Date et Lieu requis");
+
+    // Suppression de l'ancienne version si modification
+    if(editId) {
+        events = events.filter(e => e.id != editId);
+    }
+
+    const ev = {
+        id: editId ? parseInt(editId) : Date.now(), 
+        title, date,
+        time: document.getElementById('event-time').value,
+        organizer: document.getElementById('event-organizer').value,
+        type: document.getElementById('event-type').value,
+        lat: selectedCoords.lat, lng: selectedCoords.lng,
+        region: getRegionForCoords(selectedCoords.lat, selectedCoords.lng)
+    };
+
+    events.push(ev);
+    localStorage.setItem('dmf_events', JSON.stringify(events)); // Sauvegarde temporaire locale
+    loadMarkers(); 
+    closeForm(); 
+    showToast(editId ? "RDV mis à jour ! N'oubliez pas d'exporter." : "RDV enregistré ! N'oubliez pas d'exporter.");
+}
+
+function deleteEvent(id) {
+    if(confirm("Supprimer définitivement ce rendez-vous ?")) {
+        events = events.filter(e => e.id !== id);
+        localStorage.setItem('dmf_events', JSON.stringify(events));
+        loadMarkers();
+        showToast("Supprimé. Exportez pour synchroniser GitHub.");
+    }
+}
+
+function editEvent(id) {
+    const ev = events.find(e => e.id === id);
+    if(!ev) return;
+
+    document.getElementById('edit-id').value = ev.id;
+    document.getElementById('event-title').value = ev.title;
+    document.getElementById('event-date').value = ev.date;
+    document.getElementById('event-time').value = ev.time || "";
+    document.getElementById('event-type').value = ev.type;
+    document.getElementById('event-organizer').value = ev.organizer || "";
+    document.getElementById('event-location').value = "Position actuelle conservée";
+    selectedCoords = {lat: ev.lat, lng: ev.lng};
+    
+    document.getElementById('form-title').textContent = "Modifier le RDV";
+    document.getElementById('form-container').style.display = 'block';
+    document.getElementById('events-list-panel').style.display = 'none';
+    map.closePopup();
+}
+
+function getRegionForCoords(lat, lng) {
+    let nearest = REGIONS[0], minD = Infinity;
+    REGIONS.forEach(r => {
+        let d = Math.pow(r.lat - lat, 2) + Math.pow(r.lng - lng, 2);
+        if (d < minD) { minD = d; nearest = r; }
+    });
+    return nearest.name;
+}
+
+function exportData() {
+    const data = `const SHARED_EVENTS = ${JSON.stringify(events, null, 4)};\nconst SHARED_ARCHIVES = [];`;
+    const blob = new Blob([data], {type: 'text/javascript'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); 
+    a.download = 'data.js'; 
+    a.click();
+    showToast("Fichier data.js prêt ! Remplacez-le sur GitHub.");
+}
+
+function openFormCreate() { 
+    document.getElementById('form-container').reset();
+    document.getElementById('edit-id').value = "";
+    document.getElementById('form-title').textContent = "Nouveau RDV";
+    document.getElementById('form-container').style.display = 'block'; 
+}
+
+function closeForm() { document.getElementById('form-container').style.display = 'none'; }
+function toggleEventsList() { togglePanel('events-list-panel'); }
+function toggleAdminPanel() { togglePanel('admin-panel'); }
+function togglePanel(id) {
+    const p = document.getElementById(id);
+    const visible = p.style.display === 'block';
+    document.querySelectorAll('#form-container, #events-list-panel, #admin-panel').forEach(el => el.style.display = 'none');
+    p.style.display = visible ? 'none' : 'block';
+}
+function showToast(m) {
+    const t = document.getElementById('toast'); t.textContent = m;
+    t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 4000);
+}
+loadMarkers();
+</script>
 </body>
 </html>
