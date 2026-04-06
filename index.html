@@ -7,21 +7,24 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&family=Baloo+2:wght@700;800&display=swap" rel="stylesheet">
     <style>
-        :root { --dmf-dark: #2c263d; --radius: 14px; }
+        :root { --dmf-dark: #2c263d; --dmf-purple: #7d5bbe; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Nunito', sans-serif; overflow: hidden; background: var(--dmf-dark); height: 100vh; display: flex; flex-direction: column; }
         #topbar { height: 60px; background: #fff; z-index: 3000; display: flex; align-items: center; padding: 0 15px; gap: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .logo { font-family: 'Baloo 2', cursive; font-weight: 800; color: #7d5bbe; flex: 1; font-size: 1.2rem; }
+        .logo { font-family: 'Baloo 2', cursive; font-weight: 800; color: var(--dmf-purple); flex: 1; font-size: 1.2rem; }
         #map { flex: 1; z-index: 1; cursor: crosshair; }
-        .status-pill { font-size: 10px; color: #666; background: #f0f0f0; padding: 4px 10px; border-radius: 12px; }
-        .btn-form { background: #7d5bbe; color: white; padding: 8px 15px; border-radius: 20px; text-decoration: none; font-weight: 700; font-size: 12px; display: inline-block; }
+        .status-pill { font-size: 10px; color: #666; background: #f0f0f0; padding: 4px 10px; border-radius: 12px; margin-left: 10px; }
+        .btn-add { background: var(--dmf-purple); color: white; padding: 8px 18px; border-radius: 20px; text-decoration: none; font-weight: 700; font-size: 13px; transition: 0.3s; border: none; }
+        .btn-add:hover { background: #6649a3; transform: scale(1.05); }
+        .popup-content { text-align: center; padding: 5px; font-family: 'Nunito'; }
+        .btn-del { color: #e74c3c; background: none; border: 1px solid #e74c3c; padding: 4px 8px; border-radius: 5px; font-size: 10px; cursor: pointer; margin-top: 8px; width: 100%; }
     </style>
 </head>
 <body>
 
 <div id="topbar">
-    <div class="logo">Planning <span>DMF</span> <small id="sync-status" class="status-pill">Initialisation...</small></div>
-    <a href="VOTRE_LIEN_VERS_GOOGLE_FORM" target="_blank" class="btn-form">➕ Ajouter un RDV</a>
+    <div class="logo">Planning <span>DMF</span> <small id="sync-status" class="status-pill">Connexion...</small></div>
+    <a href="https://docs.google.com/forms/d/e/1FAIpQLSdvU8_G99v76h_k7S2_Yw-0X/viewform" id="form-link" target="_blank" class="btn-add">➕ AJOUTER UN RDV</a>
 </div>
 
 <div id="layout">
@@ -30,8 +33,9 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+    // --- CONFIGURATION ---
     const SHEETDB_URL = "https://sheetdb.io/api/v1/2kdvt8m5dti9s";
-    const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/VOTRE_ID_FORMULAIRE/viewform"; // REMPLACEZ ICI
+    const FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdvU8_G99v76h_k7S2_Yw-0X/viewform"; // REMPLACEZ PAR VOTRE LIEN "ENVOYER"
 
     const TYPE_CONFIG = {
         "evenement": { color: '#7d5bbe', icon: '📅' },
@@ -50,9 +54,10 @@
         L.popup()
             .setLatLng(e.latlng)
             .setContent(`
-                <div style="font-family:'Nunito'; text-align:center;">
-                    <b style="color:#7d5bbe;">Nouveau rendez-vous ?</b><br><br>
-                    <a href="${GOOGLE_FORM_URL}" target="_blank" class="btn-form">Ouvrir le formulaire</a>
+                <div class="popup-content">
+                    <b style="color:var(--dmf-purple);">Nouveau RDV ?</b><br>
+                    <p style="font-size:11px; margin:8px 0;">Ajoutez un évènement à cet endroit</p>
+                    <a href="${FORM_URL}" target="_blank" class="btn-add" style="display:block;">➕ OUVRIR</a>
                 </div>
             `)
             .openOn(map);
@@ -61,34 +66,59 @@
     async function loadData() {
         const status = document.getElementById('sync-status');
         status.textContent = "🔄 Mise à jour...";
+        
         try {
             const res = await fetch(SHEETDB_URL);
             const data = await res.json();
+            
             map.eachLayer(l => { if(l instanceof L.Marker) map.removeLayer(l); });
 
             for (const item of data) {
                 if (item.ville) {
                     const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(item.ville)}&format=json&limit=1`);
                     const geoData = await geoRes.json();
+                    
                     if (geoData.length > 0) {
                         const typeKey = (item.type || "").toLowerCase().trim();
                         const conf = TYPE_CONFIG[typeKey] || TYPE_CONFIG.default;
+                        
                         const icon = L.divIcon({
                             html: `<div style="background:${conf.color}; width:16px; height:16px; border-radius:50%; border:2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);"></div>`,
                             className: '', iconSize: [16, 16]
                         });
+
                         L.marker([geoData[0].lat, geoData[0].lon], {icon: icon})
                          .addTo(map)
-                         .bindPopup(`<strong>${conf.icon} ${item.titre}</strong><br><small>📅 ${item.date}<br>📍 ${item.ville}</small>`);
+                         .bindPopup(`
+                            <div style="font-family:'Nunito'; min-width:150px;">
+                                <strong style="color:${conf.color}">${conf.icon} ${item.titre || 'Sans titre'}</strong><br>
+                                <div style="margin-top:5px; border-top:1px solid #eee; padding-top:5px; font-size:12px;">
+                                    📅 ${item.date || '-'}<br>
+                                    📍 ${item.ville}<br>
+                                    <small style="color:#666;">👤 ${item.organisateur || '-'}</small>
+                                </div>
+                                <button class="btn-del" onclick="deleteRDV('${item.titre}')">🗑️ Supprimer</button>
+                            </div>
+                         `);
                     }
                 }
             }
             status.textContent = "✅ À jour";
-        } catch (e) { status.textContent = "⚠️ Erreur"; }
+        } catch (e) {
+            status.textContent = "⚠️ Erreur";
+        }
+    }
+
+    async function deleteRDV(titre) {
+        if(!confirm("Voulez-vous supprimer '" + titre + "' ?")) return;
+        try {
+            await fetch(`${SHEETDB_URL}/titre/${encodeURIComponent(titre)}`, { method: 'DELETE' });
+            loadData();
+        } catch (e) { alert("Erreur de suppression"); }
     }
 
     loadData();
-    setInterval(loadData, 30000);
+    setInterval(loadData, 60000); // Mise à jour auto toutes les minutes
 </script>
 </body>
 </html>
