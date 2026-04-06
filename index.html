@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Planning Fédération DMF</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10,97 +10,89 @@
     <script src="data.js"></script>
     <style>
         :root {
-            --dmf-violet: #7d5bbe;
-            --dmf-violet-light: #f4f1fa;
-            --dmf-magenta: #d64d8a;
-            --dmf-orange: #e69138;
-            --dmf-cyan: #5bc0de;
-            --dmf-green: #67a379;
-            --dmf-dark: #2c263d;
-            --text-main: #4a4458;
-            --radius: 14px;
-            --shadow: 0 6px 20px rgba(0,0,0,0.08);
-            --panel-w: 230px;
+            --dmf-violet: #7d5bbe; --dmf-violet-light: #f4f1fa;
+            --dmf-magenta: #d64d8a; --dmf-green: #67a379;
+            --dmf-dark: #2c263d; --radius: 14px; --panel-w: 230px;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Nunito', sans-serif; overflow: hidden; background: var(--dmf-dark); color: var(--text-main); }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Nunito', sans-serif; overflow: hidden; background: var(--dmf-dark); height: 100vh; display: flex; flex-direction: column; }
 
+        /* BARRE SUPÉRIEURE ADAPTATIVE */
         #topbar {
-            position: fixed; top: 0; left: 0; right: 0; height: 60px;
-            background: #fff; z-index: 3000;
-            display: flex; align-items: center; padding: 0 20px; gap: 15px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            height: 60px; background: #fff; z-index: 3000;
+            display: flex; align-items: center; padding: 0 15px; gap: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); flex-shrink: 0;
         }
-        .logo { font-family: 'Baloo 2', cursive; font-weight: 800; font-size: 1.4em; color: var(--dmf-violet); white-space: nowrap; }
-        .logo span { color: var(--dmf-magenta); }
+        .logo { font-family: 'Baloo 2', cursive; font-weight: 800; font-size: 1.1em; color: var(--dmf-violet); flex-shrink: 0; }
         .sep { flex: 1; }
         
         #topbar button {
             background: var(--dmf-violet-light); color: var(--dmf-violet); border: none;
-            padding: 8px 16px; border-radius: 30px; font-weight: 700; font-size: 0.85em;
-            cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.3s;
+            padding: 8px 12px; border-radius: 20px; font-weight: 700; font-size: 0.75em;
+            cursor: pointer; white-space: nowrap;
         }
-        #topbar button:hover { background: var(--dmf-violet); color: white; }
         .btn-create { background: var(--dmf-green) !important; color: white !important; }
 
-        #layout { position: fixed; top: 60px; left: 0; right: 0; bottom: 0; display: flex; }
+        #layout { flex: 1; display: flex; overflow: hidden; position: relative; }
 
-        .region-sidebar { width: var(--panel-w); background: #fff; overflow-y: auto; z-index: 100; flex-shrink: 0; border-right: 1px solid #eee; }
+        /* SIDEBARS (Cachées sur mobile, visibles sur PC) */
+        .region-sidebar { width: var(--panel-w); background: #fff; overflow-y: auto; border-right: 1px solid #eee; z-index: 100; }
         #sidebar-right { border-left: 1px solid #eee; border-right: none; }
         
-        .sidebar-header { 
-            position: sticky; top: 0; background: #fff; color: var(--dmf-violet); 
-            padding: 15px; font-family: 'Baloo 2', cursive; font-weight: 800; 
-            font-size: 1em; border-bottom: 2px solid var(--dmf-violet-light); z-index: 1;
+        @media (max-width: 900px) {
+            .region-sidebar { display: none; } /* On cache les listes de régions sur petit écran pour libérer la carte */
         }
-        
+
+        .sidebar-header { position: sticky; top: 0; background: #fff; color: var(--dmf-violet); padding: 15px; font-family: 'Baloo 2'; font-weight: 800; border-bottom: 2px solid var(--dmf-violet-light); }
         .region-item { border-bottom: 1px solid #f9f9f9; }
         .region-item-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 15px; cursor: pointer; }
-        .region-item-header:hover { background: var(--dmf-violet-light); }
-        .region-name { font-weight: 700; font-size: 0.82em; }
         .region-count { background: #eee; color: #888; border-radius: 20px; padding: 2px 10px; font-size: 0.75em; font-weight: 700; }
         .region-count.active { background: var(--dmf-violet); color: white; }
-        
-        .region-events { display: none; background: #fdfcff; }
+        .region-events { display: none; background: #fdfcff; font-size: 0.8em; padding: 5px 15px; }
         .region-events.open { display: block; }
-        .region-ev-item { padding: 8px 20px; font-size: 0.78em; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
 
-        #map-wrapper { flex: 1; position: relative; background: var(--dmf-dark); }
-        #map { height: 100%; width: 100%; }
+        /* CARTE ET PANELS */
+        #map-wrapper { flex: 1; position: relative; }
+        #map { height: 100%; width: 100%; z-index: 1; }
 
+        /* PANELS FLOTTANTS (Optimisés tactile) */
         #form-container, #archive-panel, #events-list-panel, #admin-panel {
-            position: absolute; top: 15px; width: 350px; max-height: calc(100% - 30px);
-            overflow-y: auto; background: white; padding: 25px; border-radius: var(--radius);
-            box-shadow: var(--shadow); z-index: 1000; display: none;
+            position: absolute; top: 10px; left: 10px; right: 10px; bottom: 10px;
+            background: white; padding: 20px; border-radius: var(--radius);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 2000; display: none; overflow-y: auto;
         }
-        #form-container, #admin-panel { right: 15px; }
-        #archive-panel, #events-list-panel { left: 15px; }
 
+        /* Largeur fixe sur grand écran */
+        @media (min-width: 600px) {
+            #form-container, #admin-panel { left: auto; width: 350px; }
+            #archive-panel, #events-list-panel { right: auto; width: 350px; }
+        }
+
+        h3 { font-family: 'Baloo 2'; margin-bottom: 15px; color: var(--dmf-dark); }
         label { display: block; margin: 12px 0 5px; font-weight: 700; font-size: 0.75em; color: #888; text-transform: uppercase; }
-        input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-family: 'Nunito'; font-size: 14px; background: #fcfcfc; }
+        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; background: #fcfcfc; } /* 16px évite le zoom auto sur iPhone */
         
-        #suggestions { background: white; border: 1px solid #ddd; position: absolute; width: calc(100% - 50px); z-index: 10; max-height: 150px; overflow-y: auto; display: none; border-radius: 8px; }
-        .suggestion-item { padding: 10px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #eee; }
+        #suggestions { background: white; border: 1px solid #ddd; position: absolute; width: calc(100% - 40px); z-index: 2010; max-height: 150px; overflow-y: auto; display: none; border-radius: 8px; }
+        .suggestion-item { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
 
         .buttons { margin-top: 20px; display: flex; gap: 10px; }
-        .btn-save { flex: 2; padding: 12px; background: var(--dmf-violet); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; }
-        .btn-cancel { flex: 1; padding: 12px; background: #f0f0f0; border: none; border-radius: 8px; cursor: pointer; color: #666; }
-        .close-x { position: absolute; top: 15px; right: 15px; background: none; border: none; cursor: pointer; color: #ccc; font-size: 1.2em; }
+        .btn-save { flex: 2; padding: 14px; background: var(--dmf-violet); color: white; border: none; border-radius: 8px; font-weight: 700; }
+        .btn-cancel { flex: 1; padding: 14px; background: #f0f0f0; border: none; border-radius: 8px; color: #666; }
+        .close-x { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 1.5em; color: #ccc; }
 
-        #toast { position: fixed; bottom: 25px; right: 25px; background: var(--dmf-dark); color: white; padding: 12px 20px; border-radius: 10px; z-index: 9999; opacity: 0; transition: 0.4s; border-left: 4px solid var(--dmf-green); }
-        #toast.show { opacity: 1; }
+        #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--dmf-dark); color: white; padding: 12px 25px; border-radius: 30px; z-index: 9999; opacity: 0; transition: 0.4s; pointer-events: none; white-space: nowrap; }
+        #toast.show { opacity: 1; bottom: 40px; }
     </style>
 </head>
 <body>
 
 <div id="topbar">
-    <div class="logo">Planning Fédération <span>DMF</span></div>
+    <div class="logo">Planning <span>DMF</span></div>
     <div class="sep"></div>
-    <button class="btn-create" onclick="openFormCreate()"><span>+</span> Créer un rendez-vous</button>
-    <button onclick="toggleEventsList()">📋 Liste</button>
-    <button onclick="toggleArchivePanel()">📦 Archives</button>
-    <button onclick="toggleAdminPanel()">⚙️ Admin</button>
+    <button class="btn-create" onclick="openFormCreate()">+</button>
+    <button onclick="toggleEventsList()">📋</button>
+    <button onclick="toggleAdminPanel()">⚙️</button>
 </div>
 
 <div id="layout">
@@ -114,60 +106,44 @@
         
         <div id="form-container">
             <button class="close-x" onclick="closeForm()">✕</button>
-            <h3 style="font-family:'Baloo 2'">Nouveau Rendez-vous</h3>
-            
+            <h3>Nouveau Rendez-vous</h3>
             <label>📍 Lieu</label>
-            <input type="text" id="event-location" placeholder="Ville, adresse..." autocomplete="off">
+            <input type="text" id="event-location" placeholder="Chercher une ville..." autocomplete="off">
             <div id="suggestions"></div>
-
             <label>📝 Titre</label>
-            <input type="text" id="event-title" placeholder="Ex: Réunion bureau">
-
-            <label>🎯 Type de rendez-vous</label>
+            <input type="text" id="event-title">
+            <label>🎯 Type</label>
             <select id="event-type">
                 <option value="evenement">📅 rdv évènement</option>
                 <option value="reunion">🤝 rdv réunion</option>
                 <option value="instance">🏛️ rdv instance</option>
                 <option value="projet">🚀 rdv projet</option>
             </select>
-
             <div style="display:flex; gap:10px;">
                 <div style="flex:1;"><label>📅 Date</label><input type="date" id="event-date"></div>
                 <div style="flex:1;"><label>⏰ Heure</label><input type="time" id="event-time"></div>
             </div>
-
             <label>👤 Organisateur</label>
             <input type="text" id="event-organizer">
-
-            <label>✉️ Email & 🔑 PIN (4 chiffres)</label>
-            <div style="display:flex; gap:5px;">
-                <input type="email" id="event-email" placeholder="Email" style="flex:2;">
-                <input type="password" id="event-pin" placeholder="PIN" maxlength="4" style="flex:1;">
-            </div>
-
+            <label>🔑 PIN (4 chiffres)</label>
+            <input type="password" id="event-pin" placeholder="PIN" maxlength="4">
             <div class="buttons">
-                <button class="btn-cancel" onclick="closeForm()">Annuler</button>
+                <button class="btn-cancel" onclick="closeForm()">Fermer</button>
                 <button class="btn-save" onclick="saveEvent()">Enregistrer</button>
             </div>
         </div>
 
         <div id="events-list-panel">
             <button class="close-x" onclick="toggleEventsList()">✕</button>
-            <h3>À venir (<span id="events-count">0</span>)</h3>
+            <h3>Liste des RDV</h3>
             <div id="events-list-content"></div>
-        </div>
-
-        <div id="archive-panel">
-            <button class="close-x" onclick="toggleArchivePanel()">✕</button>
-            <h3>Archives</h3>
-            <div id="archive-content"></div>
         </div>
 
         <div id="admin-panel">
             <button class="close-x" onclick="toggleAdminPanel()">✕</button>
-            <h3>Export Admin</h3>
-            <p style="font-size:0.8em; color:#666; margin-bottom:15px;">Téléchargez pour mettre à jour le fichier <b>data.js</b>.</p>
-            <button class="btn-save" onclick="exportData()" style="background:var(--dmf-dark);">⬇️ EXPORTER DATA.JS</button>
+            <h3>Admin / Export</h3>
+            <p style="font-size:0.85em; color:#666; margin-bottom:15px;">Pour partager vos ajouts avec tout le monde, exportez le fichier et mettez-le sur GitHub.</p>
+            <button class="btn-save" onclick="exportData()">⬇️ EXPORTER DATA.JS</button>
         </div>
     </div>
 
@@ -181,7 +157,6 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// --- CONFIGURATION DES TYPES ---
 const TYPE_CONFIG = {
     evenement: { color: '#7d5bbe', icon: '📅' },
     reunion:   { color: '#d64d8a', icon: '🤝' },
@@ -200,20 +175,16 @@ const REGIONS = [
 ];
 
 let events = (typeof SHARED_EVENTS !== 'undefined' ? [...SHARED_EVENTS] : []);
-let archives = (typeof SHARED_ARCHIVES !== 'undefined' ? [...SHARED_ARCHIVES] : []);
 let localEvs = JSON.parse(localStorage.getItem('dmf_events') || '[]');
 localEvs.forEach(le => { if(!events.find(e => e.id === le.id)) events.push(le); });
 
 const boundsFrance = L.latLngBounds(L.latLng(41.0, -5.5), L.latLng(51.5, 10.0));
-const map = L.map('map', { center: [46.60, 1.88], zoom: 6, minZoom: 6, maxBounds: boundsFrance, maxBoundsViscosity: 1.0 });
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { bounds: boundsFrance }).addTo(map);
+const map = L.map('map', { center: [46.60, 1.88], zoom: 6, minZoom: 5, maxBounds: boundsFrance, maxBoundsViscosity: 1.0 });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 function loadMarkers() {
     map.eachLayer(l => { if(l instanceof L.Marker) map.removeLayer(l); });
-    const today = new Date().toISOString().split('T')[0];
-    const active = events.filter(e => e.date >= today);
-
-    active.forEach(ev => {
+    events.forEach(ev => {
         const conf = TYPE_CONFIG[ev.type] || TYPE_CONFIG.evenement;
         const icon = L.divIcon({
             className: '',
@@ -222,31 +193,34 @@ function loadMarkers() {
         });
         L.marker([ev.lat, ev.lng], {icon}).addTo(map).bindPopup(`<b>${conf.icon} ${ev.title}</b><br>${ev.date}`);
     });
-    renderSidebars(active);
+    renderSidebars();
 }
 
-function renderSidebars(active) {
+function renderSidebars() {
+    const active = events;
     const half = Math.ceil(REGIONS.length / 2);
     document.getElementById('regions-left-content').innerHTML = REGIONS.slice(0, half).map(r => renderRegion(r, active)).join('');
     document.getElementById('regions-right-content').innerHTML = REGIONS.slice(half).map(r => renderRegion(r, active)).join('');
-    document.getElementById('events-count').textContent = active.length;
+    
+    document.getElementById('events-list-content').innerHTML = active.sort((a,b)=>new Date(a.date)-new Date(b.date)).map(e => `
+        <div style="padding:10px; border-bottom:1px solid #eee;" onclick="map.flyTo([${e.lat},${e.lng}],12); toggleEventsList();">
+            <div style="font-weight:700; color:var(--dmf-violet);">${TYPE_CONFIG[e.type].icon} ${e.title}</div>
+            <div style="font-size:0.85em; color:#666;">📅 ${e.date} • 📍 ${e.region}</div>
+        </div>
+    `).join('') || "Aucun rendez-vous.";
 }
 
 function renderRegion(r, active) {
     const evs = active.filter(e => e.region === r.name);
-    return `
-        <div class="region-item">
-            <div class="region-item-header" onclick="this.nextElementSibling.classList.toggle('open')">
-                <span class="region-name">${r.name}</span>
-                <span class="region-count ${evs.length>0?'active':''}">${evs.length}</span>
-            </div>
-            <div class="region-events">
-                ${evs.map(e => `<div class="region-ev-item" onclick="map.flyTo([${e.lat},${e.lng}],12)">${TYPE_CONFIG[e.type].icon} ${e.title}</div>`).join('')}
-            </div>
-        </div>`;
+    return `<div class="region-item">
+        <div class="region-item-header" onclick="this.nextElementSibling.classList.toggle('open')">
+            <span class="region-name">${r.name}</span>
+            <span class="region-count ${evs.length>0?'active':''}">${evs.length}</span>
+        </div>
+        <div class="region-events">${evs.map(e => `<div class="region-ev-item" onclick="map.flyTo([${e.lat},${e.lng}],12)">${e.title}</div>`).join('')}</div>
+    </div>`;
 }
 
-// --- LOGIQUE FORMULAIRE ---
 let selectedCoords = null;
 const locInput = document.getElementById('event-location');
 const suggBox = document.getElementById('suggestions');
@@ -269,13 +243,11 @@ locInput.addEventListener('input', async () => {
 function saveEvent() {
     const title = document.getElementById('event-title').value;
     const date = document.getElementById('event-date').value;
-    if(!title || !date || !selectedCoords) return showToast("Champs requis manquants", true);
+    if(!title || !date || !selectedCoords) return showToast("Veuillez remplir le titre, la date et le lieu", true);
 
     const ev = {
         id: Date.now(), title, date,
-        time: document.getElementById('event-time').value,
         type: document.getElementById('event-type').value,
-        organizer: document.getElementById('event-organizer').value,
         lat: selectedCoords.lat, lng: selectedCoords.lng,
         region: getRegionForCoords(selectedCoords.lat, selectedCoords.lng)
     };
@@ -294,7 +266,7 @@ function getRegionForCoords(lat, lng) {
 }
 
 function exportData() {
-    const data = `const SHARED_EVENTS = ${JSON.stringify(events, null, 4)};\nconst SHARED_ARCHIVES = ${JSON.stringify(archives, null, 4)};`;
+    const data = `const SHARED_EVENTS = ${JSON.stringify(events, null, 4)};\nconst SHARED_ARCHIVES = [];`;
     const blob = new Blob([data], {type: 'text/javascript'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -305,18 +277,18 @@ function exportData() {
 function openFormCreate() { document.getElementById('form-container').style.display = 'block'; }
 function closeForm() { document.getElementById('form-container').style.display = 'none'; }
 function toggleEventsList() { togglePanel('events-list-panel'); }
-function toggleArchivePanel() { togglePanel('archive-panel'); }
 function toggleAdminPanel() { togglePanel('admin-panel'); }
 function togglePanel(id) {
     const p = document.getElementById(id);
-    p.style.display = (p.style.display === 'block') ? 'none' : 'block';
+    const isVisible = p.style.display === 'block';
+    document.querySelectorAll('#form-container, #events-list-panel, #admin-panel').forEach(el => el.style.display = 'none');
+    p.style.display = isVisible ? 'none' : 'block';
 }
-function showToast(m, err=false) {
+function showToast(m) {
     const t = document.getElementById('toast');
     t.textContent = m; t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 3000);
 }
-
 loadMarkers();
 </script>
 </body>
