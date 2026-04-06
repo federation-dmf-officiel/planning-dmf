@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planning Fédération DMF</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&family=Baloo+2:wght@700;800&display=swap" rel="stylesheet">
+    <script src="data.js"></script>
+    <style>
+        :root {
+            --dmf-violet: #7d5bbe;
+            --dmf-violet-light: #f4f1fa;
+            --dmf-magenta: #d64d8a;
+            --dmf-orange: #e69138;
+            --dmf-cyan: #5bc0de;
+            --dmf-green: #67a379;
+            --dmf-dark: #2c263d;
+            --text-main: #4a4458;
+            --radius: 14px;
+            --shadow: 0 6px 20px rgba(0,0,0,0.08);
+            --panel-w: 230px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Nunito', sans-serif; overflow: hidden; background: var(--dmf-dark); color: var(--text-main); }
+
+        #topbar {
+            position: fixed; top: 0; left: 0; right: 0; height: 60px;
+            background: #fff; z-index: 3000;
+            display: flex; align-items: center; padding: 0 20px; gap: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .logo { font-family: 'Baloo 2', cursive; font-weight: 800; font-size: 1.4em; color: var(--dmf-violet); white-space: nowrap; }
+        .logo span { color: var(--dmf-magenta); }
+        .sep { flex: 1; }
+        
+        #topbar button {
+            background: var(--dmf-violet-light); color: var(--dmf-violet); border: none;
+            padding: 8px 16px; border-radius: 30px; font-weight: 700; font-size: 0.85em;
+            cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.3s;
+        }
+        #topbar button:hover { background: var(--dmf-violet); color: white; }
+        .btn-create { background: var(--dmf-green) !important; color: white !important; }
+
+        #layout { position: fixed; top: 60px; left: 0; right: 0; bottom: 0; display: flex; }
+
+        .region-sidebar { width: var(--panel-w); background: #fff; overflow-y: auto; z-index: 100; flex-shrink: 0; border-right: 1px solid #eee; }
+        #sidebar-right { border-left: 1px solid #eee; border-right: none; }
+        
+        .sidebar-header { 
+            position: sticky; top: 0; background: #fff; color: var(--dmf-violet); 
+            padding: 15px; font-family: 'Baloo 2', cursive; font-weight: 800; 
+            font-size: 1em; border-bottom: 2px solid var(--dmf-violet-light); z-index: 1;
+        }
+        
+        .region-item { border-bottom: 1px solid #f9f9f9; }
+        .region-item-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 15px; cursor: pointer; }
+        .region-item-header:hover { background: var(--dmf-violet-light); }
+        .region-name { font-weight: 700; font-size: 0.82em; }
+        .region-count { background: #eee; color: #888; border-radius: 20px; padding: 2px 10px; font-size: 0.75em; font-weight: 700; }
+        .region-count.active { background: var(--dmf-violet); color: white; }
+        
+        .region-events { display: none; background: #fdfcff; }
+        .region-events.open { display: block; }
+        .region-ev-item { padding: 8px 20px; font-size: 0.78em; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
+
+        #map-wrapper { flex: 1; position: relative; background: var(--dmf-dark); }
+        #map { height: 100%; width: 100%; }
+
+        #form-container, #archive-panel, #events-list-panel, #admin-panel {
+            position: absolute; top: 15px; width: 350px; max-height: calc(100% - 30px);
+            overflow-y: auto; background: white; padding: 25px; border-radius: var(--radius);
+            box-shadow: var(--shadow); z-index: 1000; display: none;
+        }
+        #form-container, #admin-panel { right: 15px; }
+        #archive-panel, #events-list-panel { left: 15px; }
+
+        label { display: block; margin: 12px 0 5px; font-weight: 700; font-size: 0.75em; color: #888; text-transform: uppercase; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-family: 'Nunito'; font-size: 14px; background: #fcfcfc; }
+        
+        #suggestions { background: white; border: 1px solid #ddd; position: absolute; width: calc(100% - 50px); z-index: 10; max-height: 150px; overflow-y: auto; display: none; border-radius: 8px; }
+        .suggestion-item { padding: 10px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #eee; }
+
+        .buttons { margin-top: 20px; display: flex; gap: 10px; }
+        .btn-save { flex: 2; padding: 12px; background: var(--dmf-violet); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; }
+        .btn-cancel { flex: 1; padding: 12px; background: #f0f0f0; border: none; border-radius: 8px; cursor: pointer; color: #666; }
+        .close-x { position: absolute; top: 15px; right: 15px; background: none; border: none; cursor: pointer; color: #ccc; font-size: 1.2em; }
+
+        #toast { position: fixed; bottom: 25px; right: 25px; background: var(--dmf-dark); color: white; padding: 12px 20px; border-radius: 10px; z-index: 9999; opacity: 0; transition: 0.4s; border-left: 4px solid var(--dmf-green); }
+        #toast.show { opacity: 1; }
+    </style>
+</head>
+<body>
+
+<div id="topbar">
+    <div class="logo">Planning Fédération <span>DMF</span></div>
+    <div class="sep"></div>
+    <button class="btn-create" onclick="openFormCreate()"><span>+</span> Créer un rendez-vous</button>
+    <button onclick="toggleEventsList()">📋 Liste</button>
+    <button onclick="toggleArchivePanel()">📦 Archives</button>
+    <button onclick="toggleAdminPanel()">⚙️ Admin</button>
+</div>
+
+<div id="layout">
+    <div class="region-sidebar" id="sidebar-left">
+        <div class="sidebar-header">Régions A – M</div>
+        <div id="regions-left-content"></div>
+    </div>
+
+    <div id="map-wrapper">
+        <div id="map"></div>
+        
+        <div id="form-container">
+            <button class="close-x" onclick="closeForm()">✕</button>
+            <h3 style="font-family:'Baloo 2'">Nouveau Rendez-vous</h3>
+            
+            <label>📍 Lieu</label>
+            <input type="text" id="event-location" placeholder="Ville, adresse..." autocomplete="off">
+            <div id="suggestions"></div>
+
+            <label>📝 Titre</label>
+            <input type="text" id="event-title" placeholder="Ex: Réunion bureau">
+
+            <label>🎯 Type de rendez-vous</label>
+            <select id="event-type">
+                <option value="evenement">📅 rdv évènement</option>
+                <option value="reunion">🤝 rdv réunion</option>
+                <option value="instance">🏛️ rdv instance</option>
+                <option value="projet">🚀 rdv projet</option>
+            </select>
+
+            <div style="display:flex; gap:10px;">
+                <div style="flex:1;"><label>📅 Date</label><input type="date" id="event-date"></div>
+                <div style="flex:1;"><label>⏰ Heure</label><input type="time" id="event-time"></div>
+            </div>
+
+            <label>👤 Organisateur</label>
+            <input type="text" id="event-organizer">
+
+            <label>✉️ Email & 🔑 PIN (4 chiffres)</label>
+            <div style="display:flex; gap:5px;">
+                <input type="email" id="event-email" placeholder="Email" style="flex:2;">
+                <input type="password" id="event-pin" placeholder="PIN" maxlength="4" style="flex:1;">
+            </div>
+
+            <div class="buttons">
+                <button class="btn-cancel" onclick="closeForm()">Annuler</button>
+                <button class="btn-save" onclick="saveEvent()">Enregistrer</button>
+            </div>
+        </div>
+
+        <div id="events-list-panel">
+            <button class="close-x" onclick="toggleEventsList()">✕</button>
+            <h3>À venir (<span id="events-count">0</span>)</h3>
+            <div id="events-list-content"></div>
+        </div>
+
+        <div id="archive-panel">
+            <button class="close-x" onclick="toggleArchivePanel()">✕</button>
+            <h3>Archives</h3>
+            <div id="archive-content"></div>
+        </div>
+
+        <div id="admin-panel">
+            <button class="close-x" onclick="toggleAdminPanel()">✕</button>
+            <h3>Export Admin</h3>
+            <p style="font-size:0.8em; color:#666; margin-bottom:15px;">Téléchargez pour mettre à jour le fichier <b>data.js</b>.</p>
+            <button class="btn-save" onclick="exportData()" style="background:var(--dmf-dark);">⬇️ EXPORTER DATA.JS</button>
+        </div>
+    </div>
+
+    <div class="region-sidebar" id="sidebar-right">
+        <div class="sidebar-header">Régions N – Z</div>
+        <div id="regions-right-content"></div>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// --- CONFIGURATION DES TYPES ---
+const TYPE_CONFIG = {
+    evenement: { color: '#7d5bbe', icon: '📅' },
+    reunion:   { color: '#d64d8a', icon: '🤝' },
+    instance:  { color: '#5bc0de', icon: '🏛️' },
+    projet:    { color: '#67a379', icon: '🚀' }
+};
+
+const REGIONS = [
+    { name: "Auvergne-Rhône-Alpes", lat: 45.4, lng: 4.5 }, { name: "Bourgogne-Franche-Comté", lat: 47.0, lng: 5.0 },
+    { name: "Bretagne", lat: 48.1, lng: -2.8 }, { name: "Centre-Val de Loire", lat: 47.5, lng: 1.9 },
+    { name: "Corse", lat: 42.1, lng: 9.1 }, { name: "Grand Est", lat: 48.7, lng: 6.2 },
+    { name: "Hauts-de-France", lat: 50.3, lng: 2.5 }, { name: "Île-de-France", lat: 48.8, lng: 2.3 },
+    { name: "Normandie", lat: 49.1, lng: 0.0 }, { name: "Nouvelle-Aquitaine", lat: 44.8, lng: 0.2 },
+    { name: "Occitanie", lat: 43.5, lng: 2.5 }, { name: "Pays de la Loire", lat: 47.6, lng: -0.5 },
+    { name: "Provence-Alpes-Côte d'Azur", lat: 43.9, lng: 6.1 }
+];
+
+let events = (typeof SHARED_EVENTS !== 'undefined' ? [...SHARED_EVENTS] : []);
+let archives = (typeof SHARED_ARCHIVES !== 'undefined' ? [...SHARED_ARCHIVES] : []);
+let localEvs = JSON.parse(localStorage.getItem('dmf_events') || '[]');
+localEvs.forEach(le => { if(!events.find(e => e.id === le.id)) events.push(le); });
+
+const boundsFrance = L.latLngBounds(L.latLng(41.0, -5.5), L.latLng(51.5, 10.0));
+const map = L.map('map', { center: [46.60, 1.88], zoom: 6, minZoom: 6, maxBounds: boundsFrance, maxBoundsViscosity: 1.0 });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { bounds: boundsFrance }).addTo(map);
+
+function loadMarkers() {
+    map.eachLayer(l => { if(l instanceof L.Marker) map.removeLayer(l); });
+    const today = new Date().toISOString().split('T')[0];
+    const active = events.filter(e => e.date >= today);
+
+    active.forEach(ev => {
+        const conf = TYPE_CONFIG[ev.type] || TYPE_CONFIG.evenement;
+        const icon = L.divIcon({
+            className: '',
+            html: `<div style="width:14px;height:14px;border-radius:50%;background:${conf.color};border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,0.2);"></div>`,
+            iconSize: [14,14]
+        });
+        L.marker([ev.lat, ev.lng], {icon}).addTo(map).bindPopup(`<b>${conf.icon} ${ev.title}</b><br>${ev.date}`);
+    });
+    renderSidebars(active);
+}
+
+function renderSidebars(active) {
+    const half = Math.ceil(REGIONS.length / 2);
+    document.getElementById('regions-left-content').innerHTML = REGIONS.slice(0, half).map(r => renderRegion(r, active)).join('');
+    document.getElementById('regions-right-content').innerHTML = REGIONS.slice(half).map(r => renderRegion(r, active)).join('');
+    document.getElementById('events-count').textContent = active.length;
+}
+
+function renderRegion(r, active) {
+    const evs = active.filter(e => e.region === r.name);
+    return `
+        <div class="region-item">
+            <div class="region-item-header" onclick="this.nextElementSibling.classList.toggle('open')">
+                <span class="region-name">${r.name}</span>
+                <span class="region-count ${evs.length>0?'active':''}">${evs.length}</span>
+            </div>
+            <div class="region-events">
+                ${evs.map(e => `<div class="region-ev-item" onclick="map.flyTo([${e.lat},${e.lng}],12)">${TYPE_CONFIG[e.type].icon} ${e.title}</div>`).join('')}
+            </div>
+        </div>`;
+}
+
+// --- LOGIQUE FORMULAIRE ---
+let selectedCoords = null;
+const locInput = document.getElementById('event-location');
+const suggBox = document.getElementById('suggestions');
+
+locInput.addEventListener('input', async () => {
+    if(locInput.value.length < 3) { suggBox.style.display = 'none'; return; }
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${locInput.value}&countrycodes=fr&format=json&limit=5`);
+    const data = await res.json();
+    suggBox.innerHTML = data.map(d => `<div class="suggestion-item" data-lat="${d.lat}" data-lon="${d.lon}">${d.display_name}</div>`).join('');
+    suggBox.style.display = 'block';
+    suggBox.querySelectorAll('.suggestion-item').forEach(i => {
+        i.onclick = () => {
+            selectedCoords = {lat: i.dataset.lat, lng: i.dataset.lon};
+            locInput.value = i.textContent.split(',')[0];
+            suggBox.style.display = 'none';
+        };
+    });
+});
+
+function saveEvent() {
+    const title = document.getElementById('event-title').value;
+    const date = document.getElementById('event-date').value;
+    if(!title || !date || !selectedCoords) return showToast("Champs requis manquants", true);
+
+    const ev = {
+        id: Date.now(), title, date,
+        time: document.getElementById('event-time').value,
+        type: document.getElementById('event-type').value,
+        organizer: document.getElementById('event-organizer').value,
+        lat: selectedCoords.lat, lng: selectedCoords.lng,
+        region: getRegionForCoords(selectedCoords.lat, selectedCoords.lng)
+    };
+    events.push(ev);
+    localStorage.setItem('dmf_events', JSON.stringify(events));
+    loadMarkers(); closeForm(); showToast("Enregistré !");
+}
+
+function getRegionForCoords(lat, lng) {
+    let nearest = REGIONS[0], minD = Infinity;
+    REGIONS.forEach(r => {
+        let d = Math.pow(r.lat - lat, 2) + Math.pow(r.lng - lng, 2);
+        if (d < minD) { minD = d; nearest = r; }
+    });
+    return nearest.name;
+}
+
+function exportData() {
+    const data = `const SHARED_EVENTS = ${JSON.stringify(events, null, 4)};\nconst SHARED_ARCHIVES = ${JSON.stringify(archives, null, 4)};`;
+    const blob = new Blob([data], {type: 'text/javascript'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'data.js';
+    a.click();
+}
+
+function openFormCreate() { document.getElementById('form-container').style.display = 'block'; }
+function closeForm() { document.getElementById('form-container').style.display = 'none'; }
+function toggleEventsList() { togglePanel('events-list-panel'); }
+function toggleArchivePanel() { togglePanel('archive-panel'); }
+function toggleAdminPanel() { togglePanel('admin-panel'); }
+function togglePanel(id) {
+    const p = document.getElementById(id);
+    p.style.display = (p.style.display === 'block') ? 'none' : 'block';
+}
+function showToast(m, err=false) {
+    const t = document.getElementById('toast');
+    t.textContent = m; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+loadMarkers();
+</script>
+</body>
+</html>
