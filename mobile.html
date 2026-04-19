@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Planning DMF – Mobile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0d0f14;
+      --surface: #161921;
+      --surface2: #1e2230;
+      --border: #2a2f3d;
+      --text: #e8ecf5;
+      --text-dim: #7a8099;
+      --reunion: #4f8ef7;
+      --reunion-bg: rgba(79,142,247,0.12);
+      --projet: #3ecf8e;
+      --projet-bg: rgba(62,207,142,0.12);
+      --instances: #f4a341;
+      --instances-bg: rgba(244,163,65,0.12);
+      --evenement: #e05c8a;
+      --evenement-bg: rgba(224,92,138,0.12);
+      --accent: #4f8ef7;
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100dvh;
+      overscroll-behavior: none;
+    }
+
+    /* HEADER */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 20px 12px;
+    }
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 20px;
+      letter-spacing: -0.5px;
+      color: var(--text);
+    }
+    .logo span {
+      color: var(--accent);
+    }
+    .count-badge {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 13px;
+      color: var(--text-dim);
+      font-weight: 500;
+    }
+    .count-badge b { color: var(--text); }
+
+    /* FILTERS */
+    .filters {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding-bottom: 2px;
+    }
+    .filters::-webkit-scrollbar { display: none; }
+
+    .filter-btn {
+      flex-shrink: 0;
+      border: 1.5px solid var(--border);
+      background: transparent;
+      color: var(--text-dim);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 6px 14px;
+      border-radius: 30px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .filter-btn.active {
+      color: var(--text);
+      border-color: transparent;
+    }
+    .filter-btn[data-type="tous"].active  { background: var(--surface2); color: var(--text); }
+    .filter-btn[data-type="réunion"].active  { background: var(--reunion-bg); border-color: var(--reunion); color: var(--reunion); }
+    .filter-btn[data-type="projet"].active   { background: var(--projet-bg); border-color: var(--projet); color: var(--projet); }
+    .filter-btn[data-type="instances"].active { background: var(--instances-bg); border-color: var(--instances); color: var(--instances); }
+    .filter-btn[data-type="évènement"].active { background: var(--evenement-bg); border-color: var(--evenement); color: var(--evenement); }
+
+    /* TIMELINE */
+    main {
+      padding: 20px 16px 100px;
+    }
+
+    .month-group { margin-bottom: 28px; }
+    .month-label {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+      padding-left: 4px;
+    }
+
+    /* CARD */
+    .rdv-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 10px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      position: relative;
+      overflow: hidden;
+      animation: slideUp 0.35s ease both;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .rdv-card:active { transform: scale(0.98); }
+
+    .rdv-card::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      border-radius: 4px 0 0 4px;
+    }
+    .rdv-card.type-reunion::before    { background: var(--reunion); }
+    .rdv-card.type-projet::before     { background: var(--projet); }
+    .rdv-card.type-instances::before  { background: var(--instances); }
+    .rdv-card.type-evenement::before  { background: var(--evenement); }
+
+    /* date block */
+    .card-date {
+      flex-shrink: 0;
+      width: 46px;
+      text-align: center;
+      padding-top: 2px;
+    }
+    .card-day {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 26px;
+      line-height: 1;
+      color: var(--text);
+    }
+    .card-weekday {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
+    .card-month-sm {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+
+    /* divider */
+    .card-divider {
+      width: 1px;
+      background: var(--border);
+      align-self: stretch;
+      flex-shrink: 0;
+    }
+
+    /* content */
+    .card-content { flex: 1; min-width: 0; }
+    .card-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--text);
+      text-transform: capitalize;
+      margin-bottom: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .meta-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 400;
+      padding: 3px 8px;
+      border-radius: 20px;
+    }
+    .meta-pill.ville  { background: var(--surface2); color: var(--text-dim); }
+    .meta-pill.heure  { background: var(--surface2); color: var(--text-dim); }
+
+    .type-tag {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+      letter-spacing: 0.3px;
+    }
+    .type-tag.reunion   { background: var(--reunion-bg); color: var(--reunion); }
+    .type-tag.projet    { background: var(--projet-bg);  color: var(--projet); }
+    .type-tag.instances { background: var(--instances-bg); color: var(--instances); }
+    .type-tag.evenement { background: var(--evenement-bg); color: var(--evenement); }
+
+    /* PASSE */
+    .rdv-card.passe { opacity: 0.4; }
+
+    /* TODAY badge */
+    .today-badge {
+      background: var(--accent);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    /* EMPTY */
+    .empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-dim);
+    }
+    .empty-icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-text { font-size: 15px; }
+
+    /* BOTTOM NAV */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      padding: 10px 0 20px;
+      z-index: 100;
+    }
+    .nav-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: var(--text-dim);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      transition: color 0.2s;
+      padding: 6px 0;
+    }
+    .nav-btn .nav-icon { font-size: 20px; }
+    .nav-btn.active { color: var(--accent); }
+
+    /* SECTION ARCHIVES */
+    #section-archives { display: none; }
+    #section-list { display: block; }
+
+    /* LOADING */
+    .loader {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 60px;
+    }
+    .loader-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      margin: 0 4px;
+      animation: bounce 1.2s infinite ease-in-out;
+    }
+    .loader-dot:nth-child(2) { animation-delay: 0.2s; }
+    .loader-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-top">
+      <div class="logo">Planning <span>DMF</span></div>
+      <div class="count-badge"><b id="rdv-count">–</b> RDV</div>
+    </div>
+    <div class="filters" id="filters">
+      <button class="filter-btn active" data-type="tous">Tous</button>
+      <button class="filter-btn" data-type="réunion">🔵 Réunion</button>
+      <button class="filter-btn" data-type="projet">🟢 Projet</button>
+      <button class="filter-btn" data-type="instances">🟠 Instance</button>
+      <button class="filter-btn" data-type="évènement">🩷 Évènement</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="section-list">
+      <div class="loader">
+        <div class="loader-dot"></div>
+        <div class="loader-dot"></div>
+        <div class="loader-dot"></div>
+      </div>
+    </div>
+    <div id="section-archives" style="display:none;"></div>
+  </main>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" id="btn-upcoming" onclick="showSection('upcoming')">
+      <span class="nav-icon">📅</span>À venir
+    </button>
+    <button class="nav-btn" id="btn-archives" onclick="showSection('archives')">
+      <span class="nav-icon">📦</span>Archives
+    </button>
+  </nav>
+
+<script>
+const DATA_URL = 'data.json';
+const DAYS_FR   = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+const MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const MONTHS_SHORT = ['jan','fév','mar','avr','mai','juin','juil','aoû','sep','oct','nov','déc'];
+
+let allData = [];
+let currentFilter = 'tous';
+let currentSection = 'upcoming';
+
+// Parse heure from ISO string like "1899-12-30T15:10:39.000Z"
+function parseHeure(h) {
+  if (!h) return null;
+  try {
+    const d = new Date(h);
+    const hh = d.getUTCHours();
+    const mm = d.getUTCMinutes();
+    return `${String(hh).padStart(2,'0')}h${mm > 0 ? String(mm).padStart(2,'0') : ''}`;
+  } catch { return null; }
+}
+
+// Parse rdv date (ISO, use UTC to avoid timezone day shift)
+function parseDate(s) {
+  const d = new Date(s);
+  // Get UTC date parts
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1));
+}
+
+function isToday(d) {
+  const now = new Date();
+  return d.getUTCFullYear() === now.getFullYear() &&
+         d.getUTCMonth() === now.getMonth() &&
+         d.getUTCDate() === now.getDate();
+}
+
+function typeClass(t) {
+  t = (t || '').toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu,"");
+  if (t.includes('reunion')) return 'reunion';
+  if (t.includes('projet')) return 'projet';
+  if (t.includes('instance')) return 'instances';
+  if (t.includes('event') || t.includes('evenement') || t.includes('évènement')) return 'evenement';
+  return 'reunion';
+}
+
+function typeLabel(t) {
+  const c = typeClass(t);
+  const labels = { reunion:'Réunion', projet:'Projet', instances:'Instance', evenement:'Évènement' };
+  return labels[c] || t;
+}
+
+function buildCard(rdv, idx) {
+  const d = parseDate(rdv.date);
+  const now = new Date(); now.setHours(0,0,0,0);
+  const isPast = d < now;
+  const todayFlag = isToday(d);
+  const tc = typeClass(rdv.type);
+  const heure = parseHeure(rdv.heure) || parseHeure(rdv['heure du rdv']);
+  const ville = rdv.ville ? rdv.ville.charAt(0).toUpperCase() + rdv.ville.slice(1) : '';
+
+  const card = document.createElement('div');
+  card.className = `rdv-card type-${tc}${isPast ? ' passe' : ''}`;
+  card.style.animationDelay = `${idx * 0.04}s`;
+
+  card.innerHTML = `
+    <div class="card-date">
+      <div class="card-day">${String(d.getUTCDate()).padStart(2,'0')}</div>
+      <div class="card-weekday">${DAYS_FR[d.getUTCDay()]}</div>
+      <div class="card-month-sm">${MONTHS_SHORT[d.getUTCMonth()]}</div>
+    </div>
+    <div class="card-divider"></div>
+    <div class="card-content">
+      <div class="card-title">${rdv.titre || '—'}</div>
+      <div class="card-meta">
+        <span class="type-tag ${tc}">${typeLabel(rdv.type)}</span>
+        ${ville ? `<span class="meta-pill ville">📍 ${ville}</span>` : ''}
+        ${heure ? `<span class="meta-pill heure">🕐 ${heure}</span>` : ''}
+        ${todayFlag ? `<span class="today-badge">Aujourd'hui</span>` : ''}
+      </div>
+    </div>
+  `;
+  return card;
+}
+
+function groupByMonth(items) {
+  const groups = {};
+  items.forEach(rdv => {
+    const d = parseDate(rdv.date);
+    const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth()).padStart(2,'0')}`;
+    const label = `${MONTHS_FR[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+    if (!groups[key]) groups[key] = { label, items: [] };
+    groups[key].items.push(rdv);
+  });
+  return groups;
+}
+
+function filterData(data) {
+  if (currentFilter === 'tous') return data;
+  return data.filter(r => {
+    const tc = typeClass(r.type);
+    const filterMap = { 'réunion':'reunion', 'projet':'projet', 'instances':'instances', 'évènement':'evenement' };
+    return tc === filterMap[currentFilter];
+  });
+}
+
+function render(data, container) {
+  container.innerHTML = '';
+  const filtered = filterData(data);
+  document.getElementById('rdv-count').textContent = filtered.length;
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Aucun RDV à afficher</div></div>`;
+    return;
+  }
+
+  const groups = groupByMonth(filtered);
+  let idx = 0;
+  Object.keys(groups).sort().forEach(key => {
+    const g = groups[key];
+    const section = document.createElement('div');
+    section.className = 'month-group';
+    const lbl = document.createElement('div');
+    lbl.className = 'month-label';
+    lbl.textContent = g.label;
+    section.appendChild(lbl);
+    g.items.forEach(rdv => {
+      section.appendChild(buildCard(rdv, idx++));
+    });
+    container.appendChild(section);
+  });
+}
+
+function showSection(sec) {
+  currentSection = sec;
+  document.getElementById('btn-upcoming').classList.toggle('active', sec === 'upcoming');
+  document.getElementById('btn-archives').classList.toggle('active', sec === 'archives');
+  document.getElementById('section-list').style.display = sec === 'upcoming' ? 'block' : 'none';
+  document.getElementById('section-archives').style.display = sec === 'archives' ? 'block' : 'none';
+
+  if (sec === 'upcoming') {
+    const now = new Date(); now.setHours(0,0,0,0);
+    const upcoming = allData.filter(r => parseDate(r.date) >= now).sort((a,b) => new Date(a.date)-new Date(b.date));
+    render(upcoming, document.getElementById('section-list'));
+  } else {
+    const now = new Date(); now.setHours(0,0,0,0);
+    const past = allData.filter(r => parseDate(r.date) < now).sort((a,b) => new Date(b.date)-new Date(a.date));
+    render(past, document.getElementById('section-archives'));
+  }
+}
+
+// Filters
+document.getElementById('filters').addEventListener('click', e => {
+  const btn = e.target.closest('.filter-btn');
+  if (!btn) return;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentFilter = btn.dataset.type;
+  showSection(currentSection);
+});
+
+// Load data
+fetch(DATA_URL)
+  .then(r => r.json())
+  .then(data => {
+    allData = data;
+    showSection('upcoming');
+  })
+  .catch(() => {
+    document.getElementById('section-list').innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">Impossible de charger les données</div></div>`;
+  });
+</script>
+</body>
+</html>
