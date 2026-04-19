@@ -284,5 +284,18 @@
     "lng": 5.724524,
     "ville": "grenoble",
     "heure du rdv": "1899-12-30T09:36:39.000Z"
+  },
+  {
+    "horodateur": "2026-04-19T11:48:32.000Z",
+    "titre": "rdv planning",
+    "date": "2026-07-07T22:00:00.000Z",
+    "heure": "",
+    "type": "réunion",
+    "organisateur": "daniel rondeau",
+    "adresse e-mail": "rdan9646@gmail.com",
+    "lat": 50.173538,
+    "lng": 3.236633,
+    "ville": "cambrai",
+    "heure du rdv": "1899-12-30T14:35:39.000Z"
   }
 ]
