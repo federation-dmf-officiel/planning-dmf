@@ -63,5 +63,18 @@
     "lng": -1.553621,
     "ville": "nantes",
     "heure du rdv": "1899-12-30T14:46:39.000Z"
+  },
+  {
+    "horodateur": "2026-04-20T20:16:50.000Z",
+    "titre": "Reunion bureau",
+    "date": "2026-04-27T22:00:00.000Z",
+    "heure": "",
+    "type": "réunion",
+    "organisateur": "FDMF",
+    "adresse e-mail": "fdmfpresidence@gmail.com",
+    "lat": "",
+    "lng": "",
+    "ville": "Visio",
+    "heure du rdv": "1899-12-30T19:50:39.000Z"
   }
 ]
