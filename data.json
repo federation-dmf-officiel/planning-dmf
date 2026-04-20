@@ -37,5 +37,18 @@
     "lng": "",
     "ville": "",
     "heure du rdv": "1899-12-30T15:16:39.000Z"
+  },
+  {
+    "horodateur": "2026-04-20T19:10:34.000Z",
+    "titre": "rdv bureau",
+    "date": "2026-07-10T22:00:00.000Z",
+    "heure": "",
+    "type": "réunion",
+    "organisateur": "daniel rondeau",
+    "adresse e-mail": "rdan9646@gmail.com",
+    "lat": 45.439695,
+    "lng": 4.3871779,
+    "ville": "saint etienne",
+    "heure du rdv": "1899-12-30T14:46:39.000Z"
   }
 ]
