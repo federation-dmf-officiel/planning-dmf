@@ -76,5 +76,18 @@
     "lng": 3.2221156,
     "ville": "Magalas",
     "heure du rdv": "1899-12-30T19:50:39.000Z"
+  },
+  {
+    "horodateur": "2026-05-14T08:33:28.000Z",
+    "titre": "rdv bureau",
+    "date": "2026-06-25T22:00:00.000Z",
+    "heure": "",
+    "type": "réunion",
+    "organisateur": "Daniel Rondeau",
+    "adresse e-mail": "rdan9646@gmail.com",
+    "lat": 47.3301336,
+    "lng": 5.0480484,
+    "ville": "dijon",
+    "heure du rdv": "1899-12-30T10:05:39.000Z"
   }
 ]
